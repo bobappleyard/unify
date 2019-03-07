@@ -1,7 +1,6 @@
 package unify
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -17,26 +16,24 @@ var (
 // Subs is a set of substitutions.
 type Subs map[Var]Term
 
-func (s Subs) String() string {
-	var b bytes.Buffer
-	b.WriteRune('{')
+func (s Subs) Format(st fmt.State, c rune) {
+	fmt.Fprint(st, "{")
 	first := true
 	for v, t := range s {
 		if !first {
-			b.WriteString(", ")
+			fmt.Fprint(st, ", ")
 		}
 		first = false
-		fmt.Fprintf(&b, "%s -> %s", v, t)
+		fmt.Fprintf(st, "%s -> %s", v, t)
 	}
-	b.WriteRune('}')
-	return b.String()
+	fmt.Fprint(st, "}")
 }
 
 // Unify takes a pair of terms and produces the set of substitutions so as to make source
 // the same as target. If no such set exists, an error is returned.
 func Unify(source, target Term, s Subs) (Subs, error) {
-	if source.matches(target) {
-		return nil, nil
+	if source.Matches(target) {
+		return s, nil
 	}
 	switch source := source.(type) {
 	case Var:
@@ -143,7 +140,7 @@ func (s Subs) matches(t Subs) bool {
 		if !ok {
 			return false
 		}
-		if !other.matches(u) {
+		if !other.Matches(u) {
 			return false
 		}
 	}

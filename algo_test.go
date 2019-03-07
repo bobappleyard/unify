@@ -18,7 +18,9 @@ func TestUnification(t *testing.T) {
 
 func doUnifyTest(t testing.TB) {
 	x, y, z := Var{"x"}, Var{"y"}, Var{"z"}
-	fn := func(name string) func(ts ...Term) Term { return func(ts ...Term) Term { return Apply{name, ts} } }
+	fn := func(name string) func(ts ...Term) Term {
+		return func(ts ...Term) Term { return Apply{name, ts} }
+	}
 	f := fn("f")
 	g := fn("g")
 	a, b := fn("a")(), fn("b")()
@@ -118,5 +120,54 @@ func doUnifyTest(t testing.TB) {
 		if !res.matches(testCase.res) {
 			t.Errorf("[%d] expecting\n\t%v\ngot\n\t%v", i, testCase.res, res)
 		}
+	}
+}
+
+func TestReferenceScopeTriangle(t *testing.T) {
+	entity := func(name string) func(ts ...Term) Term {
+		return func(ts ...Term) Term { return Apply{name, ts} }
+	}
+	target := entity("target")
+	scope := entity("scope")
+
+	// existing source attributes are known
+	source_parent_name := entity("source.parent_name")()
+
+	// purported new source attributes are unknown
+	source_target_name := Var{"source.target_name"}
+	source_target_parent_name := Var{"source.target_parent_name"}
+
+	// target attributes are unknown
+	target_name := Var{"target.name"}
+	target_parent_name := Var{"target.parent_name"}
+
+	// unify the target with the source to assert the relationship
+	subs, err := Unify(
+		target(target_name, target_parent_name),
+		target(source_target_name, source_target_parent_name),
+		nil,
+	)
+	if err != nil {
+		t.Error("error", err)
+	}
+
+	// unify the scope triangle to determine which attributes it implies
+	subs, err = Unify(
+		scope(target_parent_name),
+		scope(source_parent_name),
+		subs,
+	)
+	if err != nil {
+		t.Error("error", err)
+	}
+
+	// go through our target key to find the attributes that need to be created
+	if !subs[target_name].Matches(source_target_name) {
+		t.Log(subs)
+		t.Error("target name inferred incorrectly")
+	}
+	if !subs[target_parent_name].Matches(source_parent_name) {
+		t.Log(subs)
+		t.Error("target parent name inferred incorrectly")
 	}
 }
